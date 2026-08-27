@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coal Cover — CEA daily coal stock at Indian thermal power stations</title>
+<meta name="description" content="Days of coal cover, stock, receipts and burn for every thermal power station in the CEA daily coal stock report.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>Coal&nbsp;Cover</h1>
+      <p class="brand-sub">Daily coal stock at India&rsquo;s thermal power stations &middot; CEA Fuel Management Division</p>
+    </div>
+  </div>
+  <div class="masthead-controls">
+    <label class="field">
+      <span>Report date</span>
+      <select id="date-select"></select>
+    </label>
+    <label class="field">
+      <span>Compare with</span>
+      <select id="compare">
+        <option value="prev">Previous report</option>
+        <option value="7">A week earlier</option>
+        <option value="30">A month earlier</option>
+        <option value="90">Three months earlier</option>
+        <option value="first">Earliest on record</option>
+      </select>
+    </label>
+    <a class="src-link" id="source-link" href="https://npp.gov.in/dailyCoalReports" target="_blank" rel="noopener">Source report &#8599;</a>
+  </div>
+</header>
+
+<div id="demo-banner" class="banner" hidden>
+  Showing sample data. It is replaced the first time the scheduled job pulls a live report.
+</div>
+
+<!-- Signature: every plant in the fleet as one tick, sorted by days of cover. -->
+<section class="strip-wrap" aria-labelledby="strip-title">
+  <div class="strip-head">
+    <h2 id="strip-title">Fleet cover</h2>
+    <p id="strip-caption">Each bar is one station, ordered by days of cover. Bar width follows capacity.</p>
+  </div>
+  <div class="strip" id="strip" role="img" aria-describedby="strip-caption"></div>
+  <div class="strip-axis">
+    <span><b>0</b> days</span><span><b>3</b></span><span><b>7</b></span>
+    <span><b>15</b></span><span><b>30+</b> days of cover</span>
+  </div>
+  <div class="tooltip" id="tooltip" hidden></div>
+</section>
+
+<section class="kpis" id="kpis" aria-label="Headline figures"></section>
+
+<button type="button" class="filter-toggle" id="filter-toggle" aria-expanded="false" aria-controls="filters">
+  Filters <span id="filter-count"></span>
+</button>
+
+<main class="layout">
+
+  <aside class="filters" id="filters" aria-label="Filters">
+    <div class="filters-head">
+      <h2>Filters</h2>
+      <div class="filters-head-actions">
+        <button type="button" id="reset" class="ghost">Clear all</button>
+        <button type="button" id="filter-done" class="ghost only-mobile">Done</button>
+      </div>
+    </div>
+
+    <label class="field">
+      <span>Find a station</span>
+      <input type="search" id="q" placeholder="e.g. Sagardighi, Korba" autocomplete="off">
+    </label>
+
+    <fieldset class="field">
+      <legend>Days of cover</legend>
+      <div class="chips" id="cover-presets">
+        <button type="button" data-min="0" data-max="999" class="chip is-on">Any</button>
+        <button type="button" data-min="0" data-max="3" class="chip">Under 3</button>
+        <button type="button" data-min="0" data-max="7" class="chip">Under 7</button>
+        <button type="button" data-min="0" data-max="15" class="chip">Under 15</button>
+        <button type="button" data-min="20" data-max="999" class="chip">Over 20</button>
+      </div>
+      <div class="range-row">
+        <label>from <input type="number" id="cover-min" min="0" step="0.5" value="0"></label>
+        <label>to <input type="number" id="cover-max" min="0" step="0.5" value="999"></label>
+      </div>
+      <p class="hint" id="cover-basis-hint">Stock &divide; daily requirement at 85% PLF.</p>
+      <label class="switch">
+        <input type="checkbox" id="cover-basis">
+        <span>Measure against yesterday&rsquo;s actual burn instead</span>
+      </label>
+    </fieldset>
+
+    <label class="field">
+      <span>State</span>
+      <select id="f-state" multiple size="6"></select>
+    </label>
+    <label class="field">
+      <span>Utility / owner group</span>
+      <select id="f-utility" multiple size="6"></select>
+    </label>
+    <label class="field">
+      <span>Sector</span>
+      <select id="f-ownership" multiple size="4"></select>
+    </label>
+    <label class="field">
+      <span>Coal source</span>
+      <select id="f-section" multiple size="4"></select>
+      <label class="switch"><input type="checkbox" id="t-idle"><span>Include stations not in operation</span></label>
+    </label>
+    <label class="field">
+      <span>Mode of transport</span>
+      <select id="f-mode" multiple size="5"></select>
+    </label>
+
+    <fieldset class="field">
+      <legend>Show only</legend>
+      <label class="switch"><input type="checkbox" id="t-critical"><span>Critical stock (under 25% of normative)</span></label>
+      <label class="switch"><input type="checkbox" id="t-noreceipt"><span>No coal received that day</span></label>
+      <label class="switch"><input type="checkbox" id="t-drawdown"><span>Drawing down (burn above receipt)</span></label>
+      <label class="switch"><input type="checkbox" id="t-import"><span>Holding imported coal</span></label>
+    </fieldset>
+  </aside>
+
+  <div class="content">
+
+    <section class="charts">
+      <figure class="card">
+        <figcaption>All-India cover and critical count</figcaption>
+        <canvas id="chart-trend" height="190"></canvas>
+      </figure>
+      <figure class="card">
+        <figcaption id="chart-state-cap">Cover by state &mdash; capacity-weighted</figcaption>
+        <canvas id="chart-state" height="190"></canvas>
+      </figure>
+    </section>
+
+    <section class="card table-card">
+      <div class="table-head">
+        <h2 id="table-count">Stations</h2>
+        <div class="table-actions">
+          <button type="button" id="export" class="ghost">Download CSV</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="table">
+          <thead><tr id="thead-row"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="empty" hidden>No station matches these filters. Widen the cover range or clear a filter.</p>
+    </section>
+
+  </div>
+</main>
+
+<aside class="drawer" id="drawer" hidden aria-label="Station detail">
+  <button type="button" class="drawer-close" id="drawer-close" aria-label="Close station detail">&times;</button>
+  <div id="drawer-body"></div>
+</aside>
+
+<section class="card downloads" id="downloads">
+  <h2>Take the data with you</h2>
+  <p>The table export gives you the current view. For the full record, the pipeline
+     writes one CSV per calendar month, listed in <a id="dl-manifest" href="data/manifest.json">manifest.json</a>.
+     Point Power BI or Excel at the manifest and it will pick up new months on its own &mdash;
+     the recipe is in the project README.</p>
+  <ul id="dl-list"></ul>
+</section>
+
+<footer class="foot">
+  <p>Data published by the Central Electricity Authority, Fuel Management Division, via the National Power Portal.
+     This site mirrors and reformats it; the report itself is the record.
+     Stock figures are thousand tonnes ('000&nbsp;t). Last build: <span id="built"></span>.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
